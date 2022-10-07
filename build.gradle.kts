@@ -201,6 +201,21 @@ tasks.register<org.openrndr.extra.gitarchiver.GitArchiveToMarkdown>("gitArchiveT
 // ------------------------------------------------------------------------------------------------------------------ //
 
 class Openrndr {
+
+
+    val bassOs = if (project.hasProperty("targetPlatform")) {
+        error("not supported")
+    } else when (OperatingSystem.current()) {
+        OperatingSystem.WINDOWS -> "win64"
+        OperatingSystem.MAC_OS -> "macos"
+        OperatingSystem.LINUX -> when(val h = DefaultNativePlatform("current").architecture.name) {
+            "x86-64" -> "linux64"
+            else ->throw IllegalArgumentException("architecture not supported: $h")
+        }
+        else -> throw IllegalArgumentException("os not supported")
+    }
+
+
     val openrndrVersion = libs.versions.openrndr.get()
     val orxVersion = libs.versions.orx.get()
     val ormlVersion = libs.versions.orml.get()
@@ -242,8 +257,13 @@ class Openrndr {
                 mavenLocal()
             }
             maven(url = "https://maven.openrndr.org")
+            maven(url = "file:./m2-repo/")
         }
         dependencies {
+            implementation("org.nativebass:nativebass:1.1.2")
+            runtimeOnly("org.nativebass:nativebass-$bassOs:1.1.2")
+
+
             runtimeOnly(openrndr("gl3"))
             runtimeOnly(openrndrNatives("gl3"))
             implementation(openrndr("openal"))
