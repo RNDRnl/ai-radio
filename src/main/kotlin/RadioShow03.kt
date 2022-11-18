@@ -16,6 +16,9 @@ import java.io.File
 
 fun main() {
     application {
+        configure {
+            title = "AI Radio"
+        }
         initBass()
 
         program {
@@ -208,7 +211,8 @@ fun main() {
                         println("cueing stuff with $s $n")
                         s.finished.listen {
                             println("$s finished, playing $n")
-                            n.play(1.0, 250)
+                            n.play(1.0, 50)
+                            s.destroy()
                         }
                     }
                     speech.last().cueOut.listen {
