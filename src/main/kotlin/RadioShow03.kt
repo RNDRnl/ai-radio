@@ -200,15 +200,10 @@ fun main() {
                         settings.maxSpeechSegments.coerceAtLeast(settings.minSpeechSegments) + 1
                     )
                     val speakers = sampleSpeakers(segments)
-                    println("yo we done sampling speakers")
 
                     val speech = speakers.map { speakerSequences[it].next() }
 
-                    println("yo we done")
-                    println(speech)
-                    println(speech.size)
                     for ((s, n) in speech.zipWithNext()) {
-                        println("cueing stuff with $s $n")
                         s.finished.listen {
                             println("$s finished, playing $n")
                             n.play(1.0, 50)
@@ -232,13 +227,10 @@ fun main() {
                     val music = musicSequence.next()
                     music.finished.listen { segmentFinished.trigger(Unit) }
 
-                    println("constructing speech")
                     val speech = listOf(speakerSequences[0].next(), speakerSequences[1].next())
-                    println(speech)
 
                     println(speech.size)
                     for ((s, n) in speech.zipWithNext()) {
-                        println("cueing stuff with $s $n")
                         s.finished.listen {
                             println("$s finished, playing $n")
                             n.play(1.0, 250)
