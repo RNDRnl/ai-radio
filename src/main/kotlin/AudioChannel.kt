@@ -12,9 +12,11 @@ import java.nio.ByteBuffer
 import java.nio.ByteOrder
 import kotlin.coroutines.CoroutineContext
 
+
+class CueOutEvent(val audioStream: AudioStream, val early: Boolean)
 class AudioStream(val path: String, val tag:String) : Animatable() {
     var finished = Event<AudioStream>()
-    var cueOut = Event<AudioStream>()
+    var cueOut = Event<CueOutEvent>()
 
     var stream: HSTREAM? = null
     var channel: BassChannel? = null
@@ -22,6 +24,7 @@ class AudioStream(val path: String, val tag:String) : Animatable() {
     var duration = 0.0
     var outCued = false
 
+    var maximumDuration = 10000000.0
     var volume = 1.0
 
     fun position(): Double {
@@ -32,16 +35,6 @@ class AudioStream(val path: String, val tag:String) : Animatable() {
     fun skip() {
         val duration = channel!!.getDuration()
         channel!!.setPosition(duration - 3.0)
-    }
-
-    fun fadeOut() {
-        ::volume.cancel()
-        ::volume.animate(0.0, 2000, Easing.QuadOut)
-    }
-
-    fun fadeIn() {
-        ::volume.cancel()
-        ::volume.animate(1.0, 2000, Easing.QuadIn)
     }
 
     fun fft(): DoubleArray {
@@ -62,12 +55,14 @@ class AudioStream(val path: String, val tag:String) : Animatable() {
         }
     }
 
-    fun play(startVolume: Double = 1.0, predelay: Int = 0, context: CoroutineDispatcher) {
+    fun play(startVolume: Double = 1.0, predelay: Int = 0, maximumDuration:Double = 1000000.0, context: CoroutineDispatcher) {
         volume = startVolume
         stream = Bass.BASS_StreamCreateFile(false, path, 0, 0, 0)
         channel = BassChannel(stream!!.asInt())
         channel!!.setVolume(volume)
 
+        this.maximumDuration = maximumDuration
+        println("maximumDuration = $maximumDuration")
         if (predelay == 0) {
             channel!!.play()
             playing = true
@@ -94,10 +89,14 @@ class AudioStream(val path: String, val tag:String) : Animatable() {
         if (playing) {
             //channel!!.setVolume(volume)
             val pos = channel!!.getPosition()
-            if (pos > duration - 2.0 && !outCued) {
+            if ((pos > maximumDuration - 2.0 || pos > duration - 2.0) && !outCued) {
                 println("almost finished $path")
                 outCued = true
-                cueOut.trigger(this)
+                cueOut.trigger(CueOutEvent(this, pos > maximumDuration - 2.0))
+            }
+
+            if (pos > maximumDuration) {
+                channel?.stop()
             }
 
             if (channel?.isPlaying() == false) {

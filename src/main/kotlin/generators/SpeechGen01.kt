@@ -3,7 +3,7 @@ package generators
 import org.openrndr.extra.noise.uniform
 
 
-fun generateSentence() : List<Int> {
+private fun generateSentence() : List<Int> {
 
     val characters = (1 until 72) - 35 - 70 - 45 - 10
     val partitions = Int.uniform(1,4)

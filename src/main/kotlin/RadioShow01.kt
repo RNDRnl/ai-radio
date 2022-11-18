@@ -74,7 +74,7 @@ fun main() = application {
 
             val delay = if ("speech" in type) 500 else 0
 
-            activeStream.play(1.0, delay, this@application.program.dispatcher)
+            activeStream.play(1.0, delay, context  = this@application.program.dispatcher)
             if (type == "speech1") {
                 activeStream.channel?.setPan(-0.5)
             } else if (type == "speech2") {

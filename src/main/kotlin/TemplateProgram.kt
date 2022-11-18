@@ -49,7 +49,7 @@ fun main() = application {
             val (path, type) = sequenceIter.next()
             val activeStream = AudioStream(path, type)
 
-            activeStream.play(1.0, 0, this@program.dispatcher)
+            activeStream.play(1.0, 0, context = this@program.dispatcher)
             activeStreams.add(activeStream)
 //            activeStream.cueOut.listen {
 //                it.fadeOut()
