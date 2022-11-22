@@ -23,6 +23,13 @@ fun main() {
 
         program {
             val settings = object {
+                @DoubleParameter("min preset length", 60.0, 3600.0)
+                var presetLengthMin = 600.0
+
+                @DoubleParameter("max preset length", 60.0, 3600.0)
+                var presetLengthMax = 900.0
+
+
                 @DoubleParameter("min song length", 5.0, 120.0)
                 var songLengthMin = 15.0
 
@@ -44,6 +51,10 @@ fun main() {
                 @DoubleParameter("speaker 4 (Angie)", 0.0, 1.0)
                 var speaker4: Double = 1.0
 
+                @DoubleParameter("speaker 5 (Constant)", 0.0, 1.0)
+                var speaker5: Double = 1.0
+
+
 
                 @IntParameter("min speech segments", 1, 3)
                 var minSpeechSegments = 1
@@ -51,6 +62,11 @@ fun main() {
                 @IntParameter("max speech segments", 1, 7)
                 var maxSpeechSegments = 3
             }
+
+            val gui = GUI()
+
+            gui.add(settings, "Settings")
+
 
             val segmentFinished = Event<Unit>()
 
@@ -79,10 +95,11 @@ fun main() {
                 listOf(
                     File("offline-data/voices/virne"),
                     File("offline-data/voices/truck"),
-                    File("offline-data/voices/angie"),
                     File("offline-data/voices/emma"),
+                    File("offline-data/voices/angie"),
+                    File("offline-data/voices/constant"),
                     )
-            val speakerSequences = (0 until 4).map { speakerId ->
+            val speakerSequences = (speakerSources.indices).map { speakerId ->
                 sequence {
                     while (true) {
                         val musics = speakerSources[speakerId].listFiles().filter {
@@ -101,26 +118,22 @@ fun main() {
             val activeStreams = mutableSetOf<AudioStream>()
 
             fun sampleSpeakers(count: Int): List<Int> {
-                val totalWeight = settings.speaker1 + settings.speaker2 + settings.speaker3 + settings.speaker4
-
+                val totalWeight = settings.speaker1 + settings.speaker2 + settings.speaker3 + settings.speaker4 + settings.speaker5
                 val weights = mutableListOf(
                     Pair(0, settings.speaker1 / totalWeight),
                     Pair(1, settings.speaker2 / totalWeight),
                     Pair(2, settings.speaker3 / totalWeight),
-                    Pair(3, settings.speaker4 / totalWeight)
+                    Pair(3, settings.speaker4 / totalWeight),
+                    Pair(4, settings.speaker5 / totalWeight)
                 ).sortedBy { it.second }
-
 
                 val result = mutableListOf<Int>()
                 for (i in 0 until count) {
                     val r = Double.uniform(0.0, 1.0)
                     var sum = 0.0
                     for (w in weights) {
-
                         sum += w.second
-                        println("${sum} ${r}")
                         if (sum > r) {
-                            println("found sample ${w.first}")
                             result.add(w.first)
                             break
                         }
@@ -140,18 +153,14 @@ fun main() {
 
             fun AudioStream.play(volume: Double, predelay: Int, maximumDuration: Double = 120.0) {
                 this.play(volume, predelay, maximumDuration, dispatcher)
-                println("active streams: $activeStreams")
                 activeStreams.add(this)
                 this.finished.listen {
-                    println("finished")
-                    println("active streams: $activeStreams")
                     activeStreams.remove(this)
                 }
             }
 
             fun AudioStream.fadeIn() {
                 launch {
-                    println("fading in!")
                     val vr = VolumeRamp(this@fadeIn.volume)
                     vr.fadeIn()
                     vr.updateAnimation()
@@ -180,7 +189,31 @@ fun main() {
                 }
             }
 
+            var lastPresetChange = 0.0
+            var presetLength = Double.uniform(settings.presetLengthMin, settings.presetLengthMax)
+            var presetName = "startup"
+
+            val presetSequence = sequence{
+                while (true) {
+                    val presetDir = File("data/presets")
+                    val presetFiles = presetDir.listFiles().filter { it.extension == "json" }.shuffled()
+                    for (p in presetFiles) {
+                        if (p.exists()) {
+                            yield(p)
+                        }
+                    }
+                }
+            }
+            val presetIterator = presetSequence.iterator()
+
             segmentFinished.listen {
+                if (seconds - lastPresetChange > presetLength) {
+                    lastPresetChange = seconds
+                    val nextPreset = presetIterator.next()
+                    presetName = nextPreset.nameWithoutExtension
+                    gui.loadParameters(nextPreset)
+                }
+
                 fun talkWithBgMusic() {
                     val music = musicSequence.next()
                     music.finished.listen { segmentFinished.trigger(Unit) }
@@ -206,7 +239,7 @@ fun main() {
                     for ((s, n) in speech.zipWithNext()) {
                         s.finished.listen {
                             println("$s finished, playing $n")
-                            n.play(1.0, 50)
+                            n.play(1.0, Int.uniform(150, 250))
                             s.destroy()
                         }
                     }
@@ -259,14 +292,17 @@ fun main() {
             segmentFinished.trigger(Unit)
 
 
-            val gui = GUI()
-
-            gui.add(settings, "Settings")
-
             extend(gui)
 
             extend {
+
                 drawer.translate(250.0, 0.0)
+                val presetProgress = (seconds - lastPresetChange) / presetLength
+                drawer.translate(0.0, 20.0)
+                drawer.text("active program: ${presetName}", 0.0, 0.0)
+                drawer.rectangle(0.0, 10.0, (256.0 * presetProgress), 4.0)
+
+
                 activeStreams.map { it }.forEach {
                     it.update()
                     drawer.rectangle(0.0, 104.0, (256.0 * it.position() / it.duration).coerceAtLeast(0.0), 4.0)
