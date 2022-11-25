@@ -54,18 +54,36 @@ fun main() {
                 @DoubleParameter("speaker 5 (Constant)", 0.0, 1.0)
                 var speaker5: Double = 1.0
 
+                @DoubleParameter("speaker 6 (Mamma)", 0.0, 1.0)
+                var speaker6: Double = 1.0
 
+                @DoubleParameter("speaker 7 (Freud)", 0.0, 1.0)
+                var speaker7: Double = 1.0
+
+                @DoubleParameter("speaker 8 (Einstein)", 0.0, 1.0)
+                var speaker8: Double = 1.0
+
+                @DoubleParameter("speaker 9 (C. Manson)", 0.0, 1.0)
+                var speaker9: Double = 1.0
 
                 @IntParameter("min speech segments", 1, 3)
                 var minSpeechSegments = 1
 
                 @IntParameter("max speech segments", 1, 7)
                 var maxSpeechSegments = 3
+
+                fun speakers() = listOf(
+                    speaker1, speaker2, speaker3, speaker4, speaker5, speaker6, speaker7, speaker8, speaker9
+                )
+
+
             }
 
             val gui = GUI()
 
             gui.add(settings, "Settings")
+            extend(gui)
+
 
 
             val segmentFinished = Event<Unit>()
@@ -98,7 +116,11 @@ fun main() {
                     File("offline-data/voices/emma"),
                     File("offline-data/voices/angie"),
                     File("offline-data/voices/constant"),
-                    )
+                    File("offline-data/voices/mamma"),
+                    File("offline-data/voices/freud"),
+                    File("offline-data/voices/einstein"),
+                    File("offline-data/voices/cmanson"),
+                )
             val speakerSequences = (speakerSources.indices).map { speakerId ->
                 sequence {
                     while (true) {
@@ -114,18 +136,13 @@ fun main() {
                 }.iterator()
             }
 
-
             val activeStreams = mutableSetOf<AudioStream>()
 
             fun sampleSpeakers(count: Int): List<Int> {
-                val totalWeight = settings.speaker1 + settings.speaker2 + settings.speaker3 + settings.speaker4 + settings.speaker5
-                val weights = mutableListOf(
-                    Pair(0, settings.speaker1 / totalWeight),
-                    Pair(1, settings.speaker2 / totalWeight),
-                    Pair(2, settings.speaker3 / totalWeight),
-                    Pair(3, settings.speaker4 / totalWeight),
-                    Pair(4, settings.speaker5 / totalWeight)
-                ).sortedBy { it.second }
+                val sliders = settings.speakers()
+                val totalWeight = sliders.sum()
+                val weights = sliders.mapIndexed { index, it -> Pair(index, it / totalWeight) }
+                    .sortedBy { it.second }
 
                 val result = mutableListOf<Int>()
                 for (i in 0 until count) {
@@ -193,7 +210,7 @@ fun main() {
             var presetLength = Double.uniform(settings.presetLengthMin, settings.presetLengthMax)
             var presetName = "startup"
 
-            val presetSequence = sequence{
+            val presetSequence = sequence {
                 while (true) {
                     val presetDir = File("data/presets")
                     val presetFiles = presetDir.listFiles().filter { it.extension == "json" }.shuffled()
@@ -206,12 +223,25 @@ fun main() {
             }
             val presetIterator = presetSequence.iterator()
 
+            fun nextPreset() {
+                lastPresetChange = seconds
+                val nextPreset = presetIterator.next()
+                presetName = nextPreset.nameWithoutExtension
+                gui.loadParameters(nextPreset)
+                presetLength = Double.uniform(settings.presetLengthMin, settings.presetLengthMax)
+            }
+
+            keyboard.character.listen {
+                if (!it.propagationCancelled) {
+                    if (it.character == 'n') {
+                        nextPreset()
+                    }
+                }
+            }
+
             segmentFinished.listen {
                 if (seconds - lastPresetChange > presetLength) {
-                    lastPresetChange = seconds
-                    val nextPreset = presetIterator.next()
-                    presetName = nextPreset.nameWithoutExtension
-                    gui.loadParameters(nextPreset)
+                    nextPreset()
                 }
 
                 fun talkWithBgMusic() {
@@ -292,7 +322,6 @@ fun main() {
             segmentFinished.trigger(Unit)
 
 
-            extend(gui)
 
             extend {
 
