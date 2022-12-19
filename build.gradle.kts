@@ -4,7 +4,7 @@ import org.gradle.nativeplatform.platform.internal.DefaultNativePlatform
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 
 group = "org.openrndr.template"
-version = "0.4.0"
+version = "1.0.0"
 
 val applicationMainClass = "TemplateProgramKt"
 
@@ -103,6 +103,12 @@ dependencies {
 //    implementation(libs.gson)
 //    implementation(libs.csv)
 
+    implementation("org.lwjgl:lwjgl-stb:3.3.1")
+    implementation("org.lwjgl:lwjgl-openal:3.3.1")
+    implementation("org.lwjgl:lwjgl:3.3.1")
+    implementation("org.lwjgl:lwjgl-glfw:3.3.1")
+
+
     implementation(libs.kotlinx.coroutines.core)
     implementation(libs.kotlin.logging)
 
@@ -162,7 +168,7 @@ tasks {
                         from("data") {
                             include("**/*")
                         }
-                        into("build/jpackage/openrndr-application.app/data")
+                        into("build/jpackage/openrndr-application.app/Contents/Resources/data")
                     }
                 }
             }
@@ -186,7 +192,10 @@ runtime {
     jpackage {
         imageName = "openrndr-application"
         skipInstaller = true
-        if (OperatingSystem.current() == OperatingSystem.MAC_OS) jvmArgs.add("-XstartOnFirstThread")
+        if (OperatingSystem.current() == OperatingSystem.MAC_OS) {
+            jvmArgs.add("-XstartOnFirstThread")
+            jvmArgs.add("-Duser.dir=${"$"}APPDIR/../Resources")
+        }
     }
     options.set(listOf("--strip-debug", "--compress", "1", "--no-header-files", "--no-man-pages"))
     modules.set(listOf("jdk.unsupported", "java.management"))
