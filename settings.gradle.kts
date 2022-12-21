@@ -1,8 +1,8 @@
 enableFeaturePreview("VERSION_CATALOGS")
 rootProject.name = "ai-radio"
 
-val openrndrUseSnapshot = false
-val orxUseSnapshot = false
+val openrndrUseSnapshot = true
+val orxUseSnapshot = true
 val ormlUseSnapshot = true
 
 dependencyResolutionManagement {

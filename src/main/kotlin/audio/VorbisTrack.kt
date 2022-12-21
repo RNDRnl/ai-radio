@@ -16,7 +16,7 @@ import org.openrndr.events.Event
 import java.util.concurrent.atomic.AtomicBoolean
 import kotlin.concurrent.thread
 
-class VorbisTrack internal constructor(filePath: String) {
+class VorbisTrack(filePath: String, var tag:String = "") {
     private var encodedAudio: ByteBuffer? = null
     private var handle: Long = 0
     var channels = 0
@@ -30,6 +30,24 @@ class VorbisTrack internal constructor(filePath: String) {
 
     private val playing = AtomicBoolean(false)
     private val stopRequested = AtomicBoolean(false)
+
+    private val cuePoints: MutableMap<Double, Event<VorbisTrack>> = mutableMapOf()
+
+
+    fun duration():Double {
+        return samplesSec.toDouble()
+    }
+
+    fun cue(time:Double) : Event<VorbisTrack> {
+
+        val e = Event<VorbisTrack>()
+        if (time >= 0.0) {
+            cuePoints[time] = e
+        } else {
+            cuePoints[duration() + time] = e
+        }
+        return e
+    }
 
     var gain = 1.0
         set(value) {
@@ -47,8 +65,15 @@ class VorbisTrack internal constructor(filePath: String) {
 
     val finished = Event<VorbisTrack>("finished")
 
-    fun play(loop: Boolean = false) {
+    fun play(initialGain:Double? = null, loop: Boolean = false) {
+
+        if (initialGain != null) {
+            gain = initialGain
+        }
+
+
         if (!playing.get()) {
+            playing.set(true)
             stopRequested.set(false)
             if (audioThread == null) {
                 audioThread = thread(isDaemon = true) {
@@ -61,9 +86,18 @@ class VorbisTrack internal constructor(filePath: String) {
                         audioRenderer!!.update(loop)
                         Thread.sleep(5)
                         progressUpdater.updateProgress()
+
+                        val p = position()
+                        val toTrigger = cuePoints.filterKeys { it <= p }
+                        toTrigger.toList().sortedBy { it.first }.forEach {
+                            it.second.trigger(this)
+                        }
+                        cuePoints.keys.removeIf { it <= p }
+
                     }
                     playing.set(false)
                     audioRenderer?.destroy()
+                    println("finished $this")
                     finished.trigger(this)
                 }
             }
@@ -71,14 +105,15 @@ class VorbisTrack internal constructor(filePath: String) {
     }
 
     fun stop() {
+        println("requesting stop")
         if (playing.get()) {
-
+            println("requested stop")
             stopRequested.set(true)
         }
     }
 
 
-    fun ioResourceToByteBuffer(filePath: String, blockSize: Int): ByteBuffer {
+    private fun ioResourceToByteBuffer(filePath: String, blockSize: Int): ByteBuffer {
         val path = Paths.get(filePath)
         if (Files.isReadable(path)) {
             Files.newByteChannel(path).use { fc ->
@@ -144,6 +179,10 @@ class VorbisTrack internal constructor(filePath: String) {
 
     fun relativePosition(): Double {
         return sampleIndex.get().toDouble() / samplesLength
+    }
+
+    fun position(): Double {
+        return sampleIndex.get().toDouble() / sampleRate
     }
 
     // called from audio thread
