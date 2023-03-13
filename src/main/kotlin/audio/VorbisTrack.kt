@@ -52,13 +52,17 @@ class VorbisTrack(filePath: String, var tag:String = "") {
     var gain = 1.0
         set(value) {
             field = value
-            EXTThreadLocalContext.alcSetThreadContext(AudioSystem.context)
+            if (audioRenderer != null) {
+                EXTThreadLocalContext.alcSetThreadContext(AudioSystem.context)
+            }
             audioRenderer?.gain(value)
         }
     var pitch = 1.0
         set(value) {
             field = value
-            EXTThreadLocalContext.alcSetThreadContext(AudioSystem.context)
+            if (audioRenderer != null) {
+                EXTThreadLocalContext.alcSetThreadContext(AudioSystem.context)
+            }
             audioRenderer?.pitch(value)
         }
 
@@ -79,11 +83,11 @@ class VorbisTrack(filePath: String, var tag:String = "") {
                 audioThread = thread(isDaemon = true) {
                     audioRenderer = AudioRenderer(this)
                     val progressUpdater = audioRenderer!!.progressUpdater
-                    if (!audioRenderer!!.play()) {
+                    if (!audioRenderer!!.play(gain)) {
                         error("krak")
                     }
                     while (!stopRequested.get()) {
-                        audioRenderer!!.update(loop)
+                        val haveWork = audioRenderer!!.update(loop)
                         Thread.sleep(5)
                         progressUpdater.updateProgress()
 
@@ -93,12 +97,16 @@ class VorbisTrack(filePath: String, var tag:String = "") {
                             it.second.trigger(this)
                         }
                         cuePoints.keys.removeIf { it <= p }
+                        if (!haveWork) {
+                            break
+                        }
 
                     }
                     playing.set(false)
-                    audioRenderer?.destroy()
-                    println("finished $this")
+
+                    println("finished $this, triggering event")
                     finished.trigger(this)
+                    audioRenderer?.destroy()
                 }
             }
         }

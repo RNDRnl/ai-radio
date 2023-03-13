@@ -6,7 +6,7 @@ import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 group = "org.openrndr.template"
 version = "1.0.0"
 
-val applicationMainClass = "TemplateProgramKt"
+val applicationMainClass = "RadioShow03VorbisKt"
 
 /**  ## additional ORX features to be added to this project */
 val orxFeatures = setOf<String>(
@@ -169,6 +169,12 @@ tasks {
                             include("**/*")
                         }
                         into("build/jpackage/openrndr-application.app/Contents/Resources/data")
+                    }
+                    copy {
+                        from("offline-data") {
+                            include("**/*")
+                        }
+                        into("build/jpackage/openrndr-application.app/Contents/Resources/offline-data")
                     }
                 }
             }

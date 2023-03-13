@@ -1,3 +1,4 @@
+import audio.AudioSystem
 import audio.VorbisTrack
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.yield
@@ -20,6 +21,9 @@ fun main() {
         }
 
         program {
+
+            println(AudioSystem.context)
+
             val settings = object {
                 @DoubleParameter("min preset length", 60.0, 3600.0)
                 var presetLengthMin = 600.0
@@ -123,7 +127,7 @@ fun main() {
                 sequence {
                     while (true) {
                         val musics = speakerSources[speakerId].listFiles().filter {
-                            it.extension == "wav"
+                            it.extension == "ogg"
                         }.shuffled()
                         require(musics.isNotEmpty())
                         for (music in musics) {
@@ -200,7 +204,7 @@ fun main() {
                         yield()
                     }
                     this@fadeOut.stop()
-                    this@fadeOut.finished.trigger(this@fadeOut)
+                    //this@fadeOut.finished.trigger(this@fadeOut)
                     this@fadeOut.destroy()
                 }
             }
@@ -262,7 +266,9 @@ fun main() {
                     val speech = speakers.map { speakerSequences[it].next() }
 
                     for ((s, n) in speech.zipWithNext()) {
+                        println("setting up finished event for $s -> $n")
                         s.finished.listen {
+                            println("${it} finished, next")
                             launch {
                                 delay(Int.uniform(150, 250).toLong())
                                 n.play(1.0)

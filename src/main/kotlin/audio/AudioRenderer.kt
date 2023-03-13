@@ -11,8 +11,11 @@ import java.nio.ShortBuffer
 
 object AudioSystem {
     val device: Long = ALC10.alcOpenDevice(null as ByteBuffer?)
-    val context: Long = ALC10.alcCreateContext(device, null as IntBuffer?)
-
+    val context: Long = ALC10.alcCreateContext(device, null as IntBuffer?).also {
+        EXTThreadLocalContext.alcSetThreadContext(it)
+    }
+    val deviceCaps: ALCCapabilities = ALC.createCapabilities(device)
+    val caps =  AL.createCapabilities(deviceCaps)
     fun destroy() {
         ALC10.alcDestroyContext(context)
         ALC10.alcCloseDevice(device)
@@ -47,8 +50,7 @@ class AudioRenderer internal constructor(private val track: VorbisTrack) {
 
         pcm = MemoryUtil.memAllocShort(BUFFER_SIZE)
         EXTThreadLocalContext.alcSetThreadContext(AudioSystem.context)
-        val deviceCaps: ALCCapabilities = ALC.createCapabilities(AudioSystem.device)
-        AL.createCapabilities(deviceCaps)
+
         source = AL10.alGenSources()
         AL10.alSourcei(source, SOFTDirectChannels.AL_DIRECT_CHANNELS_SOFT, AL10.AL_TRUE)
         buffers = MemoryUtil.memAllocInt(2)
@@ -83,7 +85,11 @@ class AudioRenderer internal constructor(private val track: VorbisTrack) {
         return samples
     }
 
-    fun play(): Boolean {
+    fun play(gain: Double? = null): Boolean {
+        if (gain != null) {
+            this.gain(gain)
+        }
+
         for (i in 0 until buffers.limit()) {
             if (stream(buffers.get(i)) == 0) {
                 return false
